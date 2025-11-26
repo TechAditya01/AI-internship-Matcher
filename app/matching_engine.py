@@ -4,8 +4,9 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import StandardScaler
 import logging
+
 from app.extensions import db
-from models import Student, Internship, Match
+from app.models import Student, Internship, Match
 
 
 class InternshipMatchingEngine:
@@ -13,338 +14,199 @@ class InternshipMatchingEngine:
         self.scaler = StandardScaler()
 
     def clear_matches_for_student(self, student_id):
-        """Clear existing matches for a student (utility for testing)"""
+        """Clear existing matches for a student"""
         try:
-            num_deleted = Match.query.filter_by(student_id=student_id).delete()
+            num_deleted = Match.query.filter_by(student_id=student_id).delete(synchronize_session=False)
             db.session.commit()
             logging.info(f"Cleared {num_deleted} existing matches for student {student_id}")
         except Exception as e:
             logging.error(f"Error clearing matches for student {student_id}: {e}")
             db.session.rollback()
-        
-        
+
     def preprocess_skills(self, skills_text):
-        """Convert comma-separated skills to clean text"""
+        """Normalize comma-separated skills"""
         if not skills_text:
             return ""
-        return " ".join([skill.strip().lower() for skill in skills_text.split(",")])
-    
+        return " ".join(s.strip().lower() for s in skills_text.split(","))
+
     def calculate_skills_similarity(self, student_skills, internship_skills):
-        """Calculate cosine similarity between student and internship skills"""
+        """Cosine similarity score"""
         if not student_skills or not internship_skills:
             return 0.0
-            
+
         try:
-            # Combine student technical and soft skills
             student_text = self.preprocess_skills(student_skills)
             internship_text = self.preprocess_skills(internship_skills)
-            
+
             if not student_text or not internship_text:
                 return 0.0
-            
-            # Create TF-IDF vectors - use fresh vectorizer each time to avoid fitting conflicts
-            texts = [student_text, internship_text]
-            vectorizer = TfidfVectorizer(stop_words='english', max_features=1000)
-            tfidf_matrix = vectorizer.fit_transform(texts)
-            
-            # Calculate cosine similarity
-            similarity = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
-            return float(min(similarity, 1.0))
-            
+
+            vectorizer = TfidfVectorizer(stop_words="english", max_features=1000)
+            tfidf = vectorizer.fit_transform([student_text, internship_text])
+
+            sim = cosine_similarity(tfidf[0:1], tfidf[1:2])[0][0]
+            return float(min(sim, 1.0))
         except Exception as e:
-            logging.error(f"Error calculating skills similarity: {e}")
+            logging.error(f"Skill similarity error: {e}")
             return 0.0
-    
-    def calculate_location_score(self, student_preferred, student_current, internship_location):
-        """Calculate location matching score"""
-        if not internship_location:
+
+    def calculate_location_score(self, preferred, current, internship_loc):
+        """Location matching score"""
+        if not internship_loc:
             return 0.5
-            
+
         score = 0.0
-        internship_location = internship_location.lower()
-        
-        # Check preferred locations
-        if student_preferred:
-            preferred_list = [loc.strip().lower() for loc in student_preferred.split(",")]
-            if any(pref in internship_location or internship_location in pref for pref in preferred_list):
+        internship_loc = internship_loc.lower()
+
+        if preferred:
+            pref_list = [p.strip().lower() for p in preferred.split(",")]
+            if any(p in internship_loc for p in pref_list):
                 score += 0.8
-        
-        # Check current location
-        if student_current and student_current.lower() in internship_location:
+
+        if current and current.lower() in internship_loc:
             score += 0.6
-            
-        # Remote work bonus
-        if 'remote' in internship_location or 'work from home' in internship_location:
+
+        if "remote" in internship_loc or "work from home" in internship_loc:
             score += 0.7
-            
+
         return min(score, 1.0)
-    
+
     def calculate_academic_score(self, student, internship):
-        """Calculate academic compatibility score"""
         score = 0.0
-        
-        # CGPA scoring
+
         if student.cgpa and internship.min_cgpa:
             if student.cgpa >= internship.min_cgpa:
-                # Bonus for exceeding minimum CGPA
-                cgpa_ratio = student.cgpa / internship.min_cgpa
-                score += min(cgpa_ratio * 0.4, 0.5)
+                score += min((student.cgpa / internship.min_cgpa) * 0.4, 0.5)
             else:
-                # Penalty for not meeting CGPA requirement
                 score -= 0.3
         elif student.cgpa:
-            # Default scoring if no minimum CGPA specified
-            score += min(student.cgpa / 10.0 * 0.4, 0.4)
-            
-        # Course relevance
+            score += min(student.cgpa / 10 * 0.4, 0.4)
+
         if student.course and internship.preferred_course:
-            if student.course.lower() in internship.preferred_course.lower() or \
-               internship.preferred_course.lower() in student.course.lower():
+            if student.course.lower() in internship.preferred_course.lower():
                 score += 0.3
-                
-        # Year of study compatibility
+
         if student.year_of_study and internship.year_of_study_requirement:
-            year_req = internship.year_of_study_requirement.lower()
-            student_year = student.year_of_study
-            
-            if 'any' in year_req or str(student_year) in year_req:
+            req = internship.year_of_study_requirement.lower()
+            year = student.year_of_study
+
+            if "any" in req or str(year) in req:
                 score += 0.2
-            elif 'final' in year_req and student_year >= 3:
+            elif "final" in req and year >= 3:
                 score += 0.2
-            elif 'junior' in year_req and student_year <= 2:
+            elif "junior" in req and year <= 2:
                 score += 0.2
-                
-        return max(0.0, min(score, 1.0))
-    
+
+        return max(0, min(score, 1.0))
+
     def calculate_affirmative_action_score(self, student, internship):
-        """Calculate affirmative action bonus score"""
         score = 0.0
-        
-        # Social category consideration
-        if student.social_category and student.social_category != 'General':
-            category = student.social_category.upper()
-            quota_field = f"{category.lower()}_quota"
-            
-            if hasattr(internship, quota_field):
-                quota = getattr(internship, quota_field, 0)
-                if quota > 0:
-                    score += 0.3
-                    
-        # Rural/Aspirational district bonus
-        if student.district_type:
-            district_type = student.district_type.lower()
-            if district_type in ['rural', 'aspirational']:
-                if internship.rural_quota and internship.rural_quota > 0:
-                    score += 0.25
-                else:
-                    # General rural bonus
-                    score += 0.15
-                    
-        # First-time participant bonus
+
+        if student.social_category and student.social_category != "General":
+            quota = getattr(internship, f"{student.social_category.lower()}_quota", 0)
+            if quota > 0:
+                score += 0.3
+
+        if student.district_type and student.district_type.lower() in ["rural", "aspirational"]:
+            score += 0.25 if internship.rural_quota > 0 else 0.15
+
         if not student.pm_scheme_participant:
             score += 0.1
-            
-        # Limited previous internship experience bonus
+
         if student.previous_internships <= 1:
             score += 0.1
-            
+
         return min(score, 1.0)
-    
-    def calculate_sector_interest_score(self, student_interests, internship_sector):
-        """Calculate sector interest matching score"""
-        if not student_interests or not internship_sector:
+
+    def calculate_sector_interest_score(self, interests, sector):
+        if not interests or not sector:
             return 0.5
-            
-        interests_list = [interest.strip().lower() for interest in student_interests.split(",")]
-        sector_lower = internship_sector.lower()
-        
-        # Direct match
-        if sector_lower in interests_list or any(interest in sector_lower for interest in interests_list):
+
+        interests = [i.strip().lower() for i in interests.split(",")]
+        sector_lower = sector.lower()
+
+        if sector_lower in interests:
             return 1.0
-            
-        # Partial match for related sectors
-        related_matches = {
-            'technology': ['software', 'it', 'tech', 'digital'],
-            'finance': ['banking', 'financial', 'fintech'],
-            'healthcare': ['medical', 'pharma', 'health'],
-            'education': ['teaching', 'academic', 'research'],
-            'marketing': ['advertising', 'sales', 'digital marketing']
+
+        related = {
+            "technology": ["software", "it", "tech"],
+            "finance": ["banking", "fintech"],
+            "healthcare": ["medical", "pharma"],
         }
-        
-        for category, keywords in related_matches.items():
-            if any(keyword in sector_lower for keyword in keywords):
-                if category in interests_list:
-                    return 0.8
-                    
+
+        for category, keywords in related.items():
+            if any(k in sector_lower for k in keywords) and category in interests:
+                return 0.8
+
         return 0.3
-    
+
     def generate_matches_for_student(self, student_id):
-        """Generate matches for a specific student"""
         try:
             student = Student.query.get(student_id)
             if not student:
-                logging.error(f"Student with ID {student_id} not found")
+                logging.error(f"Student {student_id} not found")
                 return []
 
-            # Get all active internships
             internships = Internship.query.filter_by(is_active=True).all()
-            logging.info(f"Total active internships retrieved: {len(internships)}")
-
             matches = []
-            skipped_full_capacity = 0
-            skipped_existing_matches = 0
-            
+
             for internship in internships:
-                # Skip if internship is full
+
                 if internship.filled_positions >= internship.total_positions:
-                    skipped_full_capacity += 1
                     continue
 
-                # Check if match already exists
-                existing_match = Match.query.filter_by(
-                    student_id=student_id, 
-                    internship_id=internship.id
-                ).first()
-
-                if existing_match:
-                    skipped_existing_matches += 1
+                if Match.query.filter_by(student_id=student_id, internship_id=internship.id).first():
                     continue
 
-                # Calculate individual scores
-                skills_score = self.calculate_skills_similarity(
-                    (student.technical_skills or "") + " " + (student.soft_skills or ""),
-                    internship.required_skills
-                )
-
-                location_score = self.calculate_location_score(
-                    student.preferred_locations,
-                    student.current_location,
-                    internship.location
-                )
-
-                academic_score = self.calculate_academic_score(student, internship)
-
-                affirmative_action_score = self.calculate_affirmative_action_score(student, internship)
-
-                sector_score = self.calculate_sector_interest_score(
-                    student.sector_interests,
-                    internship.sector
-                )
-
-                # Weighted overall score
-                weights = {
-                    'skills': 0.35,
-                    'academic': 0.25,
-                    'location': 0.20,
-                    'sector': 0.15,
-                    'affirmative_action': 0.05
+                scores = {
+                    "skills": self.calculate_skills_similarity(
+                        f"{student.technical_skills} {student.soft_skills}",
+                        internship.required_skills,
+                    ),
+                    "location": self.calculate_location_score(
+                        student.preferred_locations,
+                        student.current_location,
+                        internship.location,
+                    ),
+                    "academic": self.calculate_academic_score(student, internship),
+                    "affirmative": self.calculate_affirmative_action_score(student, internship),
+                    "sector": self.calculate_sector_interest_score(
+                        student.sector_interests, internship.sector
+                    ),
                 }
 
-                overall_score = float(
-                    skills_score * weights['skills'] +
-                    academic_score * weights['academic'] +
-                    location_score * weights['location'] +
-                    sector_score * weights['sector'] +
-                    affirmative_action_score * weights['affirmative_action']
-                )
+                weights = {"skills": 0.35, "academic": 0.25, "location": 0.20, "sector": 0.15, "affirmative": 0.05}
 
-                # Only create matches above threshold
-                if overall_score >= 0.3:
-                    match = Match(
-                        student_id=student_id,
-                        internship_id=internship.id,
-                        overall_score=float(overall_score),
-                        skills_score=float(skills_score),
-                        location_score=float(location_score),
-                        academic_score=float(academic_score),
-                        affirmative_action_score=float(affirmative_action_score)
+                overall = sum(scores[k] * w for k, w in weights.items())
+
+                if overall >= 0.3:
+                    matches.append(
+                        Match(
+                            student_id=student_id,
+                            internship_id=internship.id,
+                            overall_score=float(overall),
+                            skills_score=scores["skills"],
+                            location_score=scores["location"],
+                            academic_score=scores["academic"],
+                            affirmative_action_score=scores["affirmative"],
+                        )
                     )
-                    matches.append(match)
 
-            logging.info(f"Skipped {skipped_full_capacity} internships due to capacity")
-            logging.info(f"Skipped {skipped_existing_matches} internships due to existing matches")
-            
-            # Save matches to database
-            try:
-                for match in matches:
-                    db.session.add(match)
-                db.session.commit()
-            except Exception as commit_error:
-                logging.error(f"Database commit error when saving matches for student {student_id}: {commit_error}")
-                db.session.rollback()
-                return []
+            db.session.add_all(matches)
+            db.session.commit()
 
-            # Return sorted matches (best first)
-            matches.sort(key=lambda x: x.overall_score, reverse=True)
-            return matches
+            return sorted(matches, key=lambda x: x.overall_score, reverse=True)
 
         except Exception as e:
-            logging.error(f"Error generating matches for student {student_id}: {e}")
+            logging.error(f"Matching error: {e}")
             db.session.rollback()
             return []
-    
-    def calculate_match_percentage(self, student, internship):
-        """Calculate match percentage between a student and internship (on-demand)"""
-        try:
-            # Calculate individual scores using existing methods
-            skills_score = self.calculate_skills_similarity(
-                (student.technical_skills or "") + " " + (student.soft_skills or ""),
-                internship.required_skills
-            )
-            
-            location_score = self.calculate_location_score(
-                student.preferred_locations,
-                student.current_location,
-                internship.location
-            )
-            
-            academic_score = self.calculate_academic_score(student, internship)
-            
-            affirmative_action_score = self.calculate_affirmative_action_score(student, internship)
-            
-            sector_score = self.calculate_sector_interest_score(
-                student.sector_interests,
-                internship.sector
-            )
-            
-            # Weighted overall score (same weights as in generate_matches_for_student)
-            weights = {
-                'skills': 0.35,
-                'academic': 0.25,
-                'location': 0.20,
-                'sector': 0.15,
-                'affirmative_action': 0.05
-            }
-            
-            overall_score = float(
-                skills_score * weights['skills'] +
-                academic_score * weights['academic'] +
-                location_score * weights['location'] +
-                sector_score * weights['sector'] +
-                affirmative_action_score * weights['affirmative_action']
-            )
-            
-            # Return percentage (0-100)
-            return round(overall_score * 100, 1)
-            
-        except Exception as e:
-            logging.error(f"Error calculating match percentage: {e}")
-            return 0.0
 
     def generate_all_matches(self):
-        """Generate matches for all students"""
         try:
             students = Student.query.all()
-            total_matches = 0
-            
-            for student in students:
-                matches = self.generate_matches_for_student(student.id)
-                total_matches += len(matches)
-                logging.info(f"Generated {len(matches)} matches for student {student.name}")
-            
-            logging.info(f"Total matches generated: {total_matches}")
-            return total_matches
-            
+            count = sum(len(self.generate_matches_for_student(s.id)) for s in students)
+            return count
         except Exception as e:
-            logging.error(f"Error generating all matches: {e}")
+            logging.error(f"Bulk match error: {e}")
             return 0
