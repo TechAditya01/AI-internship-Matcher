@@ -15,7 +15,7 @@
                 <span class="line-top">Six Bit</span><br>
                 <span class="line-bottom">Bandits</span>
             </a>
-            <a class="navbar-brand" href="{{ url_for('main.index') }}">
+            <a class="navbar-brand" href="{{ url_for('routes.index') }}">
                 <i class="fas fa-brain me-2"></i>AI Internship Matching
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -26,22 +26,22 @@
                     {% if session.user_type %}
                         {% if session.user_type == 'student' %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('main.student_dashboard') }}">
+                                <a class="nav-link" href="{{ url_for('routes.student_dashboard') }}">
                                     <i class="fas fa-tachometer-alt me-1"></i>Dashboard
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('main.view_matches') }}">
+                                <a class="nav-link" href="{{ url_for('routes.view_matches') }}">
                                     <i class="fas fa-search me-1"></i>My Matches
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('main.view_applications') }}">
+                                <a class="nav-link" href="{{ url_for('routes.view_applications') }}">
                                     <i class="fas fa-paper-plane me-1"></i>My Applications
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('main.profile') }}">
+                                <a class="nav-link" href="{{ url_for('routes.profile') }}">
                                     {% if session.get('google_auth') and session.get('profile_picture') %}
                                         <img src="{{ session.get('profile_picture') }}" 
                                              alt="Profile" class="rounded-circle me-2" style="width: 20px; height: 20px;">
@@ -53,34 +53,34 @@
                             </li>
                         {% elif session.user_type == 'department' %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('main.department_dashboard') }}">
+                                <a class="nav-link" href="{{ url_for('routes.department_dashboard') }}">
                                     <i class="fas fa-landmark me-1"></i>Dashboard
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('main.create_internship') }}">
+                                <a class="nav-link" href="{{ url_for('routes.create_internship') }}">
                                     <i class="fas fa-plus me-1"></i>Create Internship
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('main.department_profile') }}">
+                                <a class="nav-link" href="{{ url_for('routes.department_profile') }}">
                                     <i class="fas fa-landmark me-1"></i>Profile
                                 </a>
                             </li>
                         {% elif session.user_type == 'admin' %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('main.admin_dashboard') }}">
+                                <a class="nav-link" href="{{ url_for('routes.admin_dashboard') }}">
                                     <i class="fas fa-user-shield me-1"></i>Dashboard
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('main.manage_departments') }}">
+                                <a class="nav-link" href="{{ url_for('routes.manage_departments') }}">
                                     <i class="fas fa-building-columns me-1"></i>Manage Departments
                                 </a>
                             </li>
                         {% endif %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('main.logout') }}">
+                            <a class="nav-link" href="{{ url_for('routes.logout') }}">
                                 <i class="fas fa-sign-out-alt me-1"></i>Logout
                             </a>
                         </li>
