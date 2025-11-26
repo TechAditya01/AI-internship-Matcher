@@ -135,4 +135,3 @@ def handle_google_login(user_info, user_type='student'):
             pass
 
     return False, None
-﻿
