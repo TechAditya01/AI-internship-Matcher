@@ -48,7 +48,7 @@ def create_app():
     from models import Student, Department, Admin, Internship, Match, Application
 
     # Import and register blueprint
-    from routes import bp as main_bp
+    from app.routes import bp as main_bp
     app.register_blueprint(main_bp)
 
     # Register Google OAuth routes
