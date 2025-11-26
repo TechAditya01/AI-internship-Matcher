@@ -10,7 +10,7 @@
                 <h4 class="mb-0" style="color:#000;">
                     <i class="fas fa-landmark me-2"></i>{{ department.name }}
                 </h4>
-                <a href="{{ url_for('main.create_internship') }}" class="btn btn-primary">
+                <a href="{{ url_for('routes.create_internship') }}" class="btn btn-primary">
                     <i class="fas fa-plus me-2"></i>Create New Internship
                 </a>
             </div>
@@ -82,10 +82,10 @@
                                     </small>
                                 </div>
                                 <div class="btn-group-vertical btn-group-sm">
-                                    <a href="{{ url_for('main.view_internship', internship_id=internship.id) }}" class="btn btn-outline-primary mb-1">
+                                    <a href="{{ url_for('routes.view_internship', internship_id=internship.id) }}" class="btn btn-outline-primary mb-1">
                                         <i class="fas fa-eye me-1"></i>View
                                     </a>
-                                    <a href="{{ url_for('main.internship_applications', internship_id=internship.id) }}" class="btn btn-outline-success">
+                                    <a href="{{ url_for('routes.internship_applications', internship_id=internship.id) }}" class="btn btn-outline-success">
                                         <i class="fas fa-users me-1"></i>Applications
                                         {% set app_count = internship.applications|length %}
                                         {% if app_count > 0 %}
@@ -102,7 +102,7 @@
                         <i class="fas fa-briefcase fa-3x mb-3" style="color:#000;"></i>
                         <h5 style="color:#000;">No internships yet</h5>
                         <p style="color:#000;">Create your first internship posting to get started.</p>
-                        <a href="{{ url_for('main.create_internship') }}" class="btn btn-primary">
+                        <a href="{{ url_for('routes.create_internship') }}" class="btn btn-primary">
                             <i class="fas fa-plus me-2"></i>Create Internship
                         </a>
                     </div>
@@ -144,10 +144,10 @@
             </div>
             <div class="card-body" style="color:#000;">
                 <div class="d-grid gap-2">
-                    <a href="{{ url_for('main.create_internship') }}" class="btn btn-primary">
+                    <a href="{{ url_for('routes.create_internship') }}" class="btn btn-primary">
                         <i class="fas fa-plus me-2"></i>Create New Internship
                     </a>
-                    <a href="{{ url_for('main.complete_department_profile') }}" class="btn btn-outline-secondary mb-2">
+                    <a href="{{ url_for('routes.complete_department_profile') }}" class="btn btn-outline-secondary mb-2">
                         <i class="fas fa-edit me-2"></i>Update Department Info
                     </a>
 <!--                     <a href="{{ url_for('main.department_applications') }}" class="btn btn-outline-success">
