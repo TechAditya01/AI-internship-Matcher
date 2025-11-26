@@ -4,7 +4,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import StandardScaler
 import logging
-from extensions import db
+from app.extensions import db
 from models import Student, Internship, Match
 
 
