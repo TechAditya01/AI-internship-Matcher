@@ -2,7 +2,7 @@ from flask import (
     Blueprint, render_template, session, redirect, url_for,
     request, flash, jsonify
 )
-from .models import db, User, Internship, Application
+from .models import db, Internship, Application
 from .matching_engine import match_internships
 from .oauth_routes import oauth_login, oauth_callback
 import logging
