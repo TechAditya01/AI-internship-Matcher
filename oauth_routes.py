@@ -1,6 +1,7 @@
 import os
 from flask import Blueprint, request, redirect, session, url_for
-from google_oauth import create_google_flow, get_google_user_info, handle_google_login
+from .google_oauth import create_google_flow, get_google_user_info, handle_google_login
+
 
 oauth_bp = Blueprint('oauth', __name__)
 
