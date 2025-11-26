@@ -1,64 +1,56 @@
-import os
-from flask import Blueprint, redirect, url_for, session, request, jsonify
-from requests_oauthlib import OAuth2Session
+from flask import Blueprint, redirect, request, session, flash, url_for, current_app
+from app.oauth import get_authorization_url, exchange_code_for_token, get_google_user_info
+import logging
 
 oauth_bp = Blueprint("oauth", __name__)
-
-# --- Load from environment variables ---
-CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-
-# --- Google endpoints ---
-AUTHORIZATION_BASE_URL = "https://accounts.google.com/o/oauth2/v2/auth"
-TOKEN_URL = "https://oauth2.googleapis.com/token"
-USER_INFO_URL = "https://www.googleapis.com/oauth2/v1/userinfo"
-
-# Required scopes
-SCOPE = ["https://www.googleapis.com/auth/userinfo.email", "openid", "profile"]
+LOG = logging.getLogger(__name__)
 
 @oauth_bp.route("/auth/google")
-def google_login():
-    if not CLIENT_ID or not CLIENT_SECRET:
-        return "❌ Google OAuth not configured. Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET.", 500
-
-    google = OAuth2Session(
-        CLIENT_ID,
-        scope=SCOPE,
-        redirect_uri=url_for("oauth.google_callback", _external=True)
-    )
-
-    auth_url, state = google.authorization_url(
-        AUTHORIZATION_BASE_URL,
-        access_type="offline",
-        prompt="select_account"
-    )
-
-    session["oauth_state"] = state
+def auth_google():
+    """
+    Start Google OAuth flow. The frontend should hit this route (or you can
+    link to it as /auth/google?type=student).
+    """
+    auth_url = get_authorization_url()
+    if not auth_url:
+        flash("Google OAuth is not configured on this server.", "error")
+        LOG.error("Google OAuth not configured")
+        return redirect(url_for("routes.index") if "routes" in current_app.blueprints else "/")
     return redirect(auth_url)
 
+@oauth_bp.route("/oauth2callback")
+def oauth2callback():
+    """
+    Callback used by Google to return the authorization code.
+    We exchange code -> token -> userinfo and save essential session details.
+    """
+    code = request.args.get("code")
+    state = request.args.get("state")
+    if not code:
+        flash("No authorization code returned.", "error")
+        LOG.error("No auth code in callback.")
+        return redirect(url_for("routes.index") if "routes" in current_app.blueprints else "/")
 
-@oauth_bp.route("/auth/google/callback")
-def google_callback():
-    google = OAuth2Session(
-        CLIENT_ID,
-        state=session.get("oauth_state"),
-        redirect_uri=url_for("oauth.google_callback", _external=True)
-    )
+    token_data = exchange_code_for_token(code)
+    if not token_data or "access_token" not in token_data:
+        flash("Failed to exchange code for token.", "error")
+        LOG.error(f"Token exchange failed: {token_data}")
+        return redirect(url_for("routes.index") if "routes" in current_app.blueprints else "/")
 
-    token = google.fetch_token(
-        TOKEN_URL,
-        client_secret=CLIENT_SECRET,
-        authorization_response=request.url
-    )
+    user_info = get_google_user_info(token_data["access_token"])
+    if not user_info:
+        flash("Failed to fetch user info from Google.", "error")
+        return redirect(url_for("routes.index") if "routes" in current_app.blueprints else "/")
 
-    # Fetch user info
-    resp = google.get(USER_INFO_URL)
-    user_info = resp.json()
+    # Minimal session storage — expand as needed
+    session_user_type = request.args.get("type", "student")
+    session["oauth_user_type"] = session_user_type
+    session["user_info"] = {
+        "email": user_info.get("email"),
+        "name": user_info.get("name"),
+        "google_id": user_info.get("id"),
+        "picture": user_info.get("picture")
+    }
 
-    # Store in session
-    session["user"] = user_info
-
-    return jsonify({
-        "message": "Login Successful",
-        "user": user_info
-    })
+    flash(f"Authenticated as {user_info.get('email')}", "success")
+    return redirect(url_for("routes.index"))
