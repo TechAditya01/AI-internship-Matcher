@@ -51,6 +51,11 @@ def create_app():
     from routes import bp as main_bp
     app.register_blueprint(main_bp)
 
+    # Register Google OAuth routes
+    from oauth_routes import oauth_bp
+    app.register_blueprint(oauth_bp)
+
+
     # Create tables in development
     with app.app_context():
         db.create_all()
