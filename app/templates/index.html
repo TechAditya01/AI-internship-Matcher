@@ -87,7 +87,7 @@
                                 <div class="row g-4 justify-content-center">
                                     <div class="col-md-6 col-lg-4">
                                         <div class="d-grid">
-                                            <a href="{{ url_for('main.google_auth', type='student') }}" class="btn btn-danger btn-lg shadow-sm">
+                                            <a href="{{ url_for('routes.google_auth', type='student') }}" class="btn btn-danger btn-lg shadow-sm">
                                                 <i class="fab fa-google me-2"></i>
                                                 As Student
                                             </a>
@@ -106,7 +106,7 @@
                                 <h5 class="text-center mb-4">
                                     <i class="fas fa-envelope me-2 text-primary"></i>Login with Email & Password
                                 </h5>
-                                <form method="POST" action="{{ url_for('main.login') }}">
+                                <form method="POST" action="{{ url_for('routes.login') }}">
                                     <div class="row g-4">
                                         <div class="col-md-6">
                                             <div class="form-floating mb-3">
