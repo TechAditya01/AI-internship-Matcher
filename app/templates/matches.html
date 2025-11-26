@@ -91,7 +91,7 @@
                 <h4 class="mb-0">
                     <i class="fas fa-search me-2"></i>Your Internship Matches
                 </h4>
-                <a href="{{ url_for('main.generate_matches') }}" class="btn btn-primary">
+                <a href="{{ url_for('routes.generate_matches') }}" class="btn btn-primary">
                     <i class="fas fa-refresh me-2"></i>Refresh Matches
                 </a>
             </div>
@@ -264,10 +264,10 @@
                     <div class="row justify-content-center">
                         <div class="col-md-6">
                             <div class="d-grid gap-2">
-                                <a href="{{ url_for('main.generate_matches') }}" class="btn btn-primary">
+                                <a href="{{ url_for('routes.generate_matches') }}" class="btn btn-primary">
                                     <i class="fas fa-magic me-2"></i>Generate Matches
                                 </a>
-                                <a href="{{ url_for('main.student_dashboard') }}" class="btn btn-outline-secondary">
+                                <a href="{{ url_for('routes.student_dashboard') }}" class="btn btn-outline-secondary">
                                     <i class="fas fa-user-edit me-2"></i>Update Profile
                                 </a>
                             </div>
