@@ -210,3 +210,16 @@ class InternshipMatchingEngine:
         except Exception as e:
             logging.error(f"Bulk match error: {e}")
             return 0
+    def match_internships(student_id):
+    """
+    Wrapper function ensuring routes.py can access matching logic.
+    """
+
+    student = Student.query.get(student_id)
+    if not student:
+        return {"error": "Student not found"}
+
+    # Compute match score using existing implementation logic
+    matches = calculate_matching_scores(student)  # <-- Use existing logic inside file
+    return matches
+
