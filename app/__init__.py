@@ -6,7 +6,6 @@ from sqlalchemy import text
 from flask import Flask
 from werkzeug.middleware.proxy_fix import ProxyFix
 from app.oauth_routes import oauth_bp
-from app.routes import main_bp
 # Correct imports
 from app.extensions import db, migrate
 
