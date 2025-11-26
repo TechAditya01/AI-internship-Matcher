@@ -5,92 +5,89 @@ import pathlib
 from sqlalchemy import text
 from flask import Flask
 from werkzeug.middleware.proxy_fix import ProxyFix
+
 from app.extensions import db, migrate
 
-# Set up logging
+
 logging.basicConfig(level=logging.DEBUG)
 
+
 def create_app():
-    # Create the app
     app = Flask(__name__)
-    # Load environment variables from workspace .env (if present)
+
+    # Load .env from project root
     try:
-        # .env is located at repository root (one level above this package)
         repo_root = pathlib.Path(__file__).resolve().parents[1]
-        dotenv_path = repo_root / '.env'
+        dotenv_path = repo_root / ".env"
         if dotenv_path.exists():
             load_dotenv(dotenv_path=str(dotenv_path))
-            app.logger.debug(f"Loaded environment variables from {dotenv_path}")
-    except Exception as _:
-        # Non-fatal if dotenv is missing or fails
-        pass
+            app.logger.debug(f"Loaded .env from: {dotenv_path}")
+    except Exception:
+        app.logger.warning("Failed to load .env (ignored).")
+
+    # Secret Key
     app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key-change-in-production")
+
+    # Reverse Proxy Support (fixes HTTPS redirect issues on production)
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
-    # Configure the database
-    app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///internship_matching.db")
+    # Database Config
+    app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
+        "DATABASE_URL", "sqlite:///internship_matching.db"
+    )
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
         "pool_recycle": 300,
         "pool_pre_ping": True,
     }
 
-    # Matching / feature flags
-    try:
-        app.config['MATCH_COMPLETENESS_THRESHOLD'] = int(os.environ.get('MATCH_COMPLETENESS_THRESHOLD', 70))
-    except Exception:
-        app.config['MATCH_COMPLETENESS_THRESHOLD'] = 70
+    # Feature flag
+    app.config["MATCH_COMPLETENESS_THRESHOLD"] = int(
+        os.getenv("MATCH_COMPLETENESS_THRESHOLD", 70)
+    )
 
-    # Initialize extensions
+    # Import all models BEFORE migrations
+    from app import models  # safer for flask-migrate
+
+    # Init Flask Extensions
     db.init_app(app)
     migrate.init_app(app, db)
 
-    # Import models to register them with SQLAlchemy
-    from app.models import Student, Department, Admin, Internship, Match, Application
-
-    # Import and register blueprint
+    # Register Routes
     from app.routes import bp as main_bp
     app.register_blueprint(main_bp)
 
-    # Register Google OAuth routes
     from app.oauth_routes import oauth_bp
     app.register_blueprint(oauth_bp)
 
+    # Only auto-create schema in development
+    if app.config.get("ENV") == "development":
+        with app.app_context():
+            db.create_all()
 
-    # Create tables in development
-    with app.app_context():
-        db.create_all()
+            # SQLite schema auto-fix (optional)
+            try:
+                if db.engine.dialect.name == "sqlite":
+                    with db.engine.connect() as conn:
+                        res = conn.execute(text("PRAGMA table_info('applications')"))
+                        existing_cols = [row[1] for row in res.fetchall()]
 
-        # Ensure backward-compatible columns exist (helpful for local dev without running migrations)
-        # This can fix cases where models were extended but the SQLite DB schema is stale.
-        try:
-            inspector = db.engine
-            # Only run lightweight checks for SQLite / local DBs
-            if inspector.dialect.name == 'sqlite':
-                # Use a Connection and SQLAlchemy text() for compatibility with SQLAlchemy 1.4+/2.0
-                with db.engine.connect() as conn:
-                    res = conn.execute(text("PRAGMA table_info('applications')"))
-                    existing_cols = [row[1] for row in res.fetchall()]
+                    expected = {
+                        "department_notes": "TEXT",
+                        "interview_date": "DATETIME",
+                        "response_date": "DATETIME",
+                    }
 
-                # Columns we expect on Application model that older DBs may miss
-                expected = {
-                    'department_notes': 'TEXT',
-                    'interview_date': 'DATETIME',
-                    'response_date': 'DATETIME'
-                }
-
-                for col, col_type in expected.items():
-                    if col not in existing_cols:
-                        try:
-                            # Use a transaction for schema changes
+                    for col, col_type in expected.items():
+                        if col not in existing_cols:
                             with db.engine.begin() as conn:
                                 conn.execute(text(f"ALTER TABLE applications ADD COLUMN {col} {col_type}"))
-                            app.logger.info(f"Added missing column '{col}' to applications table")
-                        except Exception as alter_e:
-                            app.logger.error(f"Failed to add column {col}: {alter_e}")
-        except Exception as check_e:
-            app.logger.debug(f"DB schema check skipped or failed: {check_e}")
+                            app.logger.info(f"Added missing column: {col}")
+
+            except Exception as e:
+                app.logger.error(f"SQLite schema patch skipped: {e}")
 
     return app
+
 
 if __name__ == "__main__":
     app = create_app()
