@@ -10,7 +10,7 @@
                 <h4 class="mb-0">
                     <i class="fas fa-user-graduate me-2"></i>Welcome, {{ student.name }}
                 </h4>
-                <a href="{{ url_for('main.generate_matches') }}" class="btn btn-primary">
+                <a href="{{ url_for('routes.generate_matches') }}" class="btn btn-primary">
                     <i class="fas fa-magic me-2"></i>Generate New Matches
                 </a>
             </div>
@@ -66,7 +66,7 @@
                 <h5 class="mb-0">
                     <i class="fas fa-search me-2"></i>Recent Matches
                 </h5>
-                <a href="{{ url_for('main.view_matches') }}" class="btn btn-outline-secondary btn-sm">
+                <a href="{{ url_for('routes.view_matches') }}" class="btn btn-outline-secondary btn-sm">
                     View All Matches
                 </a>
             </div>
@@ -116,7 +116,7 @@
                 <i class="fas fa-search fa-3x text-muted mb-3"></i>
                 <h5>No Matches Yet</h5>
                 <p style="color:#000;">Click "Generate New Matches" to find internship opportunities tailored for you.</p>
-                <a href="{{ url_for('main.generate_matches') }}" class="btn btn-primary">
+                <a href="{{ url_for('routes.generate_matches') }}" class="btn btn-primary">
                     <i class="fas fa-magic me-2"></i>Generate Matches
                 </a>
             </div>
