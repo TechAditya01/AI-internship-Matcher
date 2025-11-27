@@ -7,7 +7,7 @@ LOG = logging.getLogger(__name__)
 CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 # Make sure your Render redirect URI matches this (or set OAUTH_REDIRECT_URI env var)
-REDIRECT_URI = os.getenv("redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
+REDIRECT_URI = os.getenv("redirect_uri = os.getenv("https://ai-internship-matcher-1.onrender.com/auth/google/callback")
 
 SCOPES = "openid email profile"
 
