@@ -1,4 +1,6 @@
 from flask import Blueprint, render_template, session, redirect, url_for, flash
+from werkzeug.security import check_password_hash
+from .database import get_user_by_email
 import logging
 
 bp = Blueprint("routes", __name__, template_folder="../templates")
@@ -31,6 +33,23 @@ def logout():
 
     session.clear()
     return redirect(url_for("routes.index"))
+
+@routes.route("/login", methods=["POST"])
+def login():
+    email = request.form.get("email")
+    password = request.form.get("password")
+    user_type = request.form.get("user_type")
+
+    user = get_user_by_email(email)
+
+    if user and check_password_hash(user.password, password):
+        session["user"] = user.email
+        session["user_type"] = user_type
+        flash("Login successful!", "success")
+        return redirect(url_for("routes.dashboard"))  # adjust if needed
+    else:
+        flash("Invalid credentials", "danger")
+        return redirect(url_for("routes.home"))
 
 
 @bp.route("/health")
