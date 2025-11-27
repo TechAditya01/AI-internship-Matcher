@@ -1,6 +1,6 @@
 from flask import Blueprint, redirect, request, session, flash, url_for, current_app
 from app.oauth import get_authorization_url, exchange_code_for_token, get_google_user_info
-from .database import save_user
+from .database import create_user
 import logging
 
 oauth_bp = Blueprint("oauth", __name__)
