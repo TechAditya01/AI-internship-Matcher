@@ -12,7 +12,11 @@ LOG = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 def create_app():
+<<<<<<< HEAD
     app = Flask(__name__, instance_relative_config=False)
+=======
+    app = Flask(__name__, template_folder="templates")
+>>>>>>> 9b96774 (updated code)
 
     # load .env from repo root if present
     try:
