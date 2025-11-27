@@ -41,7 +41,7 @@
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('routes.profile') }}">
+                                <a class="nav-link" href="{{ url_for('routes.complete_student_profile') }}">
                                     {% if session.get('google_auth') and session.get('profile_picture') %}
                                         <img src="{{ session.get('profile_picture') }}" 
                                              alt="Profile" class="rounded-circle me-2" style="width: 20px; height: 20px;">

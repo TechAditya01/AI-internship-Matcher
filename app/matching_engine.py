@@ -210,16 +210,86 @@ class InternshipMatchingEngine:
         except Exception as e:
             logging.error(f"Bulk match error: {e}")
             return 0
-    def match_internships(student_id):
-    """
-    Wrapper function ensuring routes.py can access matching logic.
-    """
 
-    student = Student.query.get(student_id)
-    if not student:
-        return {"error": "Student not found"}
+    def calculate_matching_scores(self, student):
+        internships = Internship.query.filter_by(is_active=True).all()
+        matches = []
 
-    # Compute match score using existing implementation logic
-    matches = calculate_matching_scores(student)  # <-- Use existing logic inside file
-    return matches
+        for internship in internships:
+            if internship.filled_positions >= internship.total_positions:
+                continue
+
+            if Match.query.filter_by(student_id=student.id, internship_id=internship.id).first():
+                continue
+
+            scores = {
+                "skills": self.calculate_skills_similarity(
+                    f"{student.technical_skills} {student.soft_skills}",
+                    internship.required_skills,
+                ),
+                "location": self.calculate_location_score(
+                    student.preferred_locations,
+                    student.current_location,
+                    internship.location,
+                ),
+                "academic": self.calculate_academic_score(student, internship),
+                "affirmative": self.calculate_affirmative_action_score(student, internship),
+                "sector": self.calculate_sector_interest_score(
+                    student.sector_interests, internship.sector
+                ),
+            }
+
+            weights = {"skills": 0.35, "academic": 0.25, "location": 0.20, "sector": 0.15, "affirmative": 0.05}
+
+            overall = sum(scores[k] * w for k, w in weights.items())
+
+            if overall >= 0.3:
+                matches.append(
+                    {
+                        "internship_id": internship.id,
+                        "overall_score": float(overall),
+                        "skills_score": scores["skills"],
+                        "location_score": scores["location"],
+                        "academic_score": scores["academic"],
+                        "affirmative_action_score": scores["affirmative"],
+                    }
+                )
+
+        return sorted(matches, key=lambda x: x["overall_score"], reverse=True)
+
+    def match_internships(self, student_id):
+        student = Student.query.get(student_id)
+        if not student:
+            return {"error": "Student not found"}
+        # Compute match score using existing implementation logic
+        matches = self.calculate_matching_scores(student)
+        return matches
+
+    def calculate_match_percentage(self, student, internship):
+        """Calculate match percentage for a student-internship pair"""
+        scores = {
+            "skills": self.calculate_skills_similarity(
+                f"{student.technical_skills} {student.soft_skills}",
+                internship.required_skills,
+            ),
+            "location": self.calculate_location_score(
+                student.preferred_locations,
+                student.current_location,
+                internship.location,
+            ),
+            "academic": self.calculate_academic_score(student, internship),
+            "affirmative": self.calculate_affirmative_action_score(student, internship),
+            "sector": self.calculate_sector_interest_score(
+                student.sector_interests, internship.sector
+            ),
+        }
+
+        weights = {"skills": 0.35, "academic": 0.25, "location": 0.20, "sector": 0.15, "affirmative": 0.05}
+
+        overall = sum(scores[k] * w for k, w in weights.items())
+        return round(overall * 100, 2)  # Return as percentage
+
+
+# Create an instance of the matching engine for import
+matching_engine = InternshipMatchingEngine()
 
