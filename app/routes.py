@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, session, redirect, url_for, flash
 from werkzeug.security import check_password_hash
 from .database import get_user_by_email
+from .database import save_user
 import logging
 
 bp = Blueprint("routes", __name__, template_folder="../templates")
